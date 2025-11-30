@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>insta.gramm</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-primary: #00ff88;
+            --accent-secondary: #00cc6a;
+            --accent-glow: rgba(0, 255, 136, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a9a;
+            --text-muted: #5a5a6a;
+            --border-color: #2a2a3a;
+            --message-sent: #1a2a1f;
+            --message-received: #1a1a25;
+        }
+
+```
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+        font-family: 'Outfit', -apple-system, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .bg-grid {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background-image: linear-gradient(rgba(0, 255, 136, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 136, 0.02) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none; z-index: 0;
+    }
+
+    .app-container { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }
+
+    .header {
+        padding: 12px 16px; background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+
+    .logo-icon {
+        width: 36px; height: 36px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border-radius: 10px; display: flex; align-items: center; justify-content: center;
+        font-family: 'Space Mono', monospace; font-weight: 700; font-size: 14px; color: var(--bg-primary);
+    }
+
+    .logo-text { font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; }
+    .logo-text span { color: var(--accent-primary); }
+
+    .encryption-badge {
+        display: flex; align-items: center; gap: 5px; padding: 5px 10px;
+        background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.2);
+        border-radius: 16px; font-size: 10px; color: var(--accent-primary); font-weight: 500;
+    }
+
+    .encryption-dot { width: 5px; height: 5px; background: var(--accent-primary); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .view.active { display: flex; }
+
+    .welcome-screen {
+        flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 24px 20px; text-align: center; overflow-y: auto;
+    }
+
+    .welcome-icon {
+        width: 100px; height: 100px; background: var(--bg-secondary); border-radius: 28px;
+        display: flex; align-items: center; justify-content: center; margin-bottom: 24px;
+        border: 1px solid var(--border-color);
+    }
+
+    .welcome-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+    .welcome-subtitle { font-size: 14px; color: var(--text-secondary); line-height: 1.5; max-width: 280px; margin-bottom: 32px; }
+
+    .feature-list { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px; margin-bottom: 32px; }
+
+    .feature-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px;
+        background: var(--bg-secondary); border-radius: 14px; border: 1px solid var(--border-color); text-align: left;
+    }
+
+    .feature-icon {
+        width: 40px; height: 40px; background: rgba(0, 255, 136, 0.1); border-radius: 10px;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .feature-text h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .feature-text p { font-size: 11px; color: var(--text-secondary); }
+
+    .btn-primary {
+        width: 100%; max-width: 300px; padding: 14px 28px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border: none; border-radius: 14px; font-family: 'Outfit', sans-serif;
+        font-size: 15px; font-weight: 600; color: var(--bg-primary); cursor: pointer;
+    }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+
+    .chat-list-container { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+
+    .section-title {
+        font-size: 11px; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 4px; margin-bottom: 6px;
+    }
+
+    .chat-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px;
+        background: var(--bg-secondary); border-radius: 14px; margin-bottom: 8px; cursor: pointer;
+    }
+    .chat-item:active { background: var(--bg-tertiary); transform: scale(0.99); }
+
+    .chat-avatar {
+        width: 46px; height: 46px; border-radius: 12px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px; flex-shrink: 0;
+    }
+
+    .chat-info { flex: 1; min-width: 0; }
+    .chat-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .chat-preview { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .chat-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .chat-time { font-size: 10px; color: var(--text-muted); }
+
+    .unread-badge {
+        background: var(--accent-primary); color: var(--bg-primary);
+        font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 8px;
+    }
+
+    .new-chat-btn {
+        position: fixed; bottom: 20px; right: 20px; width: 52px; height: 52px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border: none; border-radius: 14px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 4px 16px var(--accent-glow); z-index: 10;
+    }
+    .new-chat-btn:active { transform: scale(0.95); }
+
+    .chat-header {
+        padding: 10px 12px; background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+
+    .back-btn {
+        width: 34px; height: 34px; background: var(--bg-tertiary); border: none;
+        border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .back-btn:active { background: var(--border-color); }
+
+    .chat-header-info { flex: 1; }
+    .chat-header-name { font-size: 15px; font-weight: 600; }
+    .chat-header-status { font-size: 11px; color: var(--accent-primary); display: flex; align-items: center; gap: 4px; }
+
+    .messages-container {
+        flex: 1; overflow-y: auto; padding: 12px;
+        display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch;
+    }
+
+    .message { max-width: 82%; padding: 10px 14px; border-radius: 16px; }
+    .message.sent { align-self: flex-end; background: var(--message-sent); border: 1px solid rgba(0, 255, 136, 0.15); border-bottom-right-radius: 4px; }
+    .message.received { align-self: flex-start; background: var(--message-received); border: 1px solid var(--border-color); border-bottom-left-radius: 4px; }
+
+    .message-text { font-size: 14px; line-height: 1.4; word-break: break-word; }
+    .message-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
+    .message-time { font-size: 10px; color: var(--text-muted); }
+
+    .input-container {
+        padding: 10px 12px; padding-bottom: max(10px, env(safe-area-inset-bottom));
+        background: var(--bg-secondary); border-top: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+
+    .message-input {
+        flex: 1; padding: 10px 14px; background: var(--bg-tertiary);
+        border: 1px solid var(--border-color); border-radius: 20px;
+        font-family: 'Outfit', sans-serif; font-size: 14px; color: var(--text-primary); outline: none;
+    }
+    .message-input:focus { border-color: var(--accent-primary); }
+    .message-input::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+        width: 40px; height: 40px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border: none; border-radius: 50%; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .send-btn:active { transform: scale(0.95); }
+
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.85); display: none;
+        align-items: flex-end; justify-content: center; z-index: 100;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+        background: var(--bg-secondary); border-radius: 20px 20px 0 0;
+        width: 100%; max-width: 420px; padding: 20px;
+        padding-bottom: max(20px, env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto;
+    }
+
+    .modal-handle { width: 36px; height: 4px; background: var(--border-color); border-radius: 2px; margin: 0 auto 16px; }
+    .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .modal-subtitle { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; }
+
+    .modal-input {
+        width: 100%; padding: 12px 14px; background: var(--bg-tertiary);
+        border: 1px solid var(--border-color); border-radius: 12px;
+        font-family: 'Outfit', sans-serif; font-size: 14px; color: var(--text-primary); outline: none; margin-bottom: 12px;
+    }
+    .modal-input:focus { border-color: var(--accent-primary); }
+    .modal-input::placeholder { color: var(--text-muted); }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+
+    .btn-secondary {
+        flex: 1; padding: 12px; background: var(--bg-tertiary);
+        border: 1px solid var(--border-color); border-radius: 12px;
+        font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-primary); cursor: pointer;
+    }
+
+    .btn-modal-primary {
+        flex: 1; padding: 12px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border: none; border-radius: 12px;
+        font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; color: var(--bg-primary); cursor: pointer;
+    }
+
+    .key-display {
+        background: var(--bg-tertiary); border-radius: 12px; padding: 14px;
+        margin-bottom: 14px; border: 1px solid var(--border-color);
+    }
+
+    .key-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .key-value { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--accent-primary); letter-spacing: 2px; user-select: all; }
+
+    .copy-btn {
+        margin-top: 10px; padding: 8px 14px; background: rgba(0, 255, 136, 0.1);
+        border: 1px solid rgba(0, 255, 136, 0.2); border-radius: 8px;
+        font-family: 'Outfit', sans-serif; font-size: 12px; color: var(--accent-primary); cursor: pointer;
+    }
+    .copy-btn:active { background: rgba(0, 255, 136, 0.2); }
+
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; }
+    .empty-icon { width: 70px; height: 70px; background: var(--bg-tertiary); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .empty-subtitle { font-size: 13px; color: var(--text-secondary); }
+
+    .toast {
+        position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(80px);
+        background: var(--bg-tertiary); border: 1px solid var(--border-color);
+        padding: 10px 20px; border-radius: 10px; font-size: 13px;
+        opacity: 0; transition: all 0.25s ease; z-index: 1000; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+    ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+```
+
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="app-container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">iG</div>
+                <div class="logo-text">insta<span>.gramm</span></div>
+            </div>
+            <div class="encryption-badge"><div class="encryption-dot"></div>E2E</div>
+        </header>
+
+```
+    <div id="welcomeView" class="view active">
+        <div class="welcome-screen">
+            <div class="welcome-icon">
+                <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="1.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/>
+                </svg>
+            </div>
+            <h1 class="welcome-title">Καλώς ήρθες</h1>
+            <p class="welcome-subtitle">Ασφαλείς συνομιλίες με end-to-end encryption. Μόνο εσύ και ο παραλήπτης.</p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                    <div class="feature-text"><h4>AES-256 Encryption</h4><p>Κρυπτογράφηση στρατιωτικού επιπέδου</p></div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg></div>
+                    <div class="feature-text"><h4>P2P Network</h4><p>Αποκεντρωμένο - χωρίς server</p></div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <div class="feature-text"><h4>Zero Knowledge</h4><p>Κανείς δεν βλέπει τα μηνύματά σου</p></div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="initializeUser()">Ξεκίνα τώρα</button>
+        </div>
+    </div>
+
+    <div id="chatListView" class="view">
+        <div class="chat-list-container">
+            <div class="section-title">Συνομιλίες</div>
+            <div id="chatList"></div>
+        </div>
+        <button class="new-chat-btn" onclick="showNewChatModal()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a0a0f" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+    </div>
+
+    <div id="chatView" class="view">
+        <div class="chat-header">
+            <button class="back-btn" onclick="showChatList()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="chat-header-info">
+                <div class="chat-header-name" id="chatHeaderName">Username</div>
+                <div class="chat-header-status">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Encrypted
+                </div>
+            </div>
+        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        <div class="input-container">
+            <input type="text" class="message-input" id="messageInput" placeholder="Μήνυμα..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0a0a0f" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="newChatModal" onclick="handleModalClick(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Νέα Συνομιλία</h2>
+        <p class="modal-subtitle">Μοιράσου το ID σου και πάρε το ID του φίλου σου.</p>
+        <div class="key-display">
+            <div class="key-label">Το δικό σου Chat ID</div>
+            <div class="key-value" id="myPublicKeyDisplay">--------</div>
+            <button class="copy-btn" onclick="copyPublicKey()">📋 Αντιγραφή ID</button>
+        </div>
+        <input type="text" class="modal-input" id="recipientKeyInput" placeholder="Chat ID παραλήπτη (π.χ. A1B2C3D4)">
+        <input type="text" class="modal-input" id="recipientNameInput" placeholder="Όνομα (προαιρετικό)">
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="hideNewChatModal()">Ακύρωση</button>
+            <button class="btn-modal-primary" onclick="startNewChat()">Έναρξη</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const GUN_PEERS = ['https://gun-manhattan.herokuapp.com/gun', 'https://gun-us.herokuapp.com/gun'];
+    let gun;
+    try { gun = Gun({ peers: GUN_PEERS, localStorage: true }); } catch (e) { gun = Gun({ localStorage: true }); }
+
+    let currentUser = null, currentChat = null, chats = {};
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    function generateUserId() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let id = '';
+        for (let i = 0; i < 8; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+        return id;
+    }
+
+    function generateSharedKey(id1, id2) {
+        return CryptoJS.SHA256([id1, id2].sort().join('::')).toString();
+    }
+
+    function encryptMessage(msg, key) { return CryptoJS.AES.encrypt(msg, key).toString(); }
+
+    function decryptMessage(enc, key) {
+        try { return CryptoJS.AES.decrypt(enc, key).toString(CryptoJS.enc.Utf8) || null; }
+        catch (e) { return null; }
+    }
+
+    function initializeUser() {
+        showToast('Δημιουργία ID...');
+        let stored = localStorage.getItem('ig_user');
+        if (stored) { currentUser = JSON.parse(stored); }
+        else {
+            const tgUser = tg?.initDataUnsafe?.user;
+            currentUser = { odId: generateUserId(), name: tgUser?.first_name || 'User' };
+            localStorage.setItem('ig_user', JSON.stringify(currentUser));
+        }
+        gun.get('ig').get('users').get(currentUser.odId).put({ name: currentUser.name, online: Date.now() });
+        loadChats(); subscribeToMessages(); showChatList();
+        showToast('Έτοιμο! ID: ' + currentUser.odId, 'success');
+    }
+
+    function loadChats() {
+        const stored = localStorage.getItem('ig_chats');
+        if (stored) { chats = JSON.parse(stored); renderChatList(); }
+    }
+
+    function saveChats() { localStorage.setItem('ig_chats', JSON.stringify(chats)); }
+
+    function subscribeToMessages() {
+        gun.get('ig').get('inbox').get(currentUser.odId).map().on((data, key) => {
+            if (!data || !data.enc) return;
+            const senderId = data.from;
+            if (!senderId || senderId === currentUser.odId) return;
+            const sharedKey = generateSharedKey(currentUser.odId, senderId);
+            const decrypted = decryptMessage(data.enc, sharedKey);
+            if (!decrypted) return;
+            if (!chats[senderId]) {
+                chats[senderId] = { odId: senderId, name: data.fromName || 'Unknown', messages: [], lastMessage: '', lastTime: 0, unread: 0 };
+            }
+            if (chats[senderId].messages.some(m => m.id === key)) return;
+            chats[senderId].messages.push({ id: key, text: decrypted, sent: false, time: data.time });
+            chats[senderId].lastMessage = decrypted;
+            chats[senderId].lastTime = data.time;
+            if (currentChat !== senderId) { chats[senderId].unread++; if (tg) tg.HapticFeedback?.notificationOccurred('success'); }
+            saveChats(); renderChatList();
+            if (currentChat === senderId) renderMessages();
+        });
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !currentChat) return;
+        const chat = chats[currentChat];
+        const msgId = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const sharedKey = generateSharedKey(currentUser.odId, chat.odId);
+        const encrypted = encryptMessage(text, sharedKey);
+        gun.get('ig').get('inbox').get(chat.odId).get(msgId).put({ enc: encrypted, from: currentUser.odId, fromName: currentUser.name, time: Date.now() });
+        chat.messages.push({ id: msgId, text: text, sent: true, time: Date.now() });
+        chat.lastMessage = text; chat.lastTime = Date.now();
+        saveChats(); renderMessages(); renderChatList(); input.value = '';
+        if (tg) tg.HapticFeedback?.impactOccurred('light');
+    }
+
+    function handleKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
+
+    function showView(id) { document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+    function showChatList() { currentChat = null; showView('chatListView'); if (tg) tg.BackButton?.hide(); }
+
+    function renderChatList() {
+        const container = document.getElementById('chatList');
+        const sorted = Object.entries(chats).sort((a, b) => (b[1].lastTime || 0) - (a[1].lastTime || 0));
+        if (sorted.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#5a5a6a" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="empty-title">Καμία συνομιλία</div><div class="empty-subtitle">Πάτα + για να ξεκινήσεις</div></div>';
+            return;
+        }
+        container.innerHTML = sorted.map(([id, chat]) => {
+            const initials = (chat.name || 'U').slice(0, 2).toUpperCase();
+            const color = stringToColor(chat.odId || id);
+            return `<div class="chat-item" onclick="openChat('${id}')"><div class="chat-avatar" style="background: ${color}">${initials}</div><div class="chat-info"><div class="chat-name">${escapeHtml(chat.name || 'Unknown')}</div><div class="chat-preview">${escapeHtml(chat.lastMessage || 'Νέα συνομιλία')}</div></div><div class="chat-meta"><div class="chat-time">${formatTime(chat.lastTime)}</div>${chat.unread > 0 ? `<div class="unread-badge">${chat.unread}</div>` : ''}</div></div>`;
+        }).join('');
+    }
+
+    function openChat(chatId) {
+        currentChat = chatId;
+        const chat = chats[chatId];
+        if (!chat) return;
+        chat.unread = 0; saveChats();
+        document.getElementById('chatHeaderName').textContent = chat.name || 'Unknown';
+        showView('chatView'); renderMessages();
+        document.getElementById('messageInput').focus();
+        if (tg) { tg.BackButton?.show(); tg.BackButton?.onClick(showChatList); }
+    }
+
+    function renderMessages() {
+        const container = document.getElementById('messagesContainer');
+        const chat = chats[currentChat];
+        if (!chat?.messages?.length) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-title">Encrypted</div><div class="empty-subtitle">Γράψε το πρώτο μήνυμα</div></div>';
+            return;
+        }
+        container.innerHTML = chat.messages.map(msg => `<div class="message ${msg.sent ? 'sent' : 'received'}"><div class="message-text">${escapeHtml(msg.text)}</div><div class="message-meta"><span class="message-time">${formatTime(msg.time)}</span></div></div>`).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function showNewChatModal() { document.getElementById('newChatModal').classList.add('active'); document.getElementById('myPublicKeyDisplay').textContent = currentUser?.odId || '--------'; }
+    function hideNewChatModal() { document.getElementById('newChatModal').classList.remove('active'); document.getElementById('recipientKeyInput').value = ''; document.getElementById('recipientNameInput').value = ''; }
+    function handleModalClick(e) { if (e.target.classList.contains('modal-overlay')) hideNewChatModal(); }
+
+    async function copyPublicKey() {
+        if (!currentUser?.odId) return;
+        try { await navigator.clipboard.writeText(currentUser.odId); }
+        catch (e) { const ta = document.createElement('textarea'); ta.value = currentUser.odId; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+        showToast('ID αντιγράφηκε!', 'success');
+    }
+
+    function startNewChat() {
+        const recipientId = document.getElementById('recipientKeyInput').value.trim().toUpperCase();
+        const recipientName = document.getElementById('recipientNameInput').value.trim() || 'Contact';
+        if (!recipientId) { showToast('Εισάγετε Chat ID'); return; }
+        if (recipientId === currentUser.odId) { showToast('Δεν γίνεται στον εαυτό σου!'); return; }
+        if (recipientId.length < 6) { showToast('Μη έγκυρο Chat ID'); return; }
+        chats[recipientId] = { odId: recipientId, name: recipientName, messages: [], lastMessage: '', lastTime: Date.now(), unread: 0 };
+        saveChats(); hideNewChatModal(); openChat(recipientId);
+        showToast('Συνομιλία δημιουργήθηκε!', 'success');
+    }
+
+    function formatTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts), now = new Date();
+        if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
+    }
+
+    function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+
+    function stringToColor(str) {
+        if (!str) return 'linear-gradient(135deg, #667eea, #764ba2)';
+        let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        const hue = Math.abs(hash) % 360;
+        return `linear-gradient(135deg, hsl(${hue}, 65%, 55%), hsl(${(hue + 40) % 360}, 65%, 45%))`;
+    }
+
+    function showToast(msg, type = '') {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg; toast.className = 'toast show ' + type;
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    window.addEventListener('load', () => {
+        const stored = localStorage.getItem('ig_user');
+        if (stored) { currentUser = JSON.parse(stored); loadChats(); subscribeToMessages(); showChatList(); }
+    });
+
+    setInterval(() => { if (currentUser) gun.get('ig').get('users').get(currentUser.odId).put({ online: Date.now() }); }, 30000);
+</script>
+```
+
+</body>
+</html>
